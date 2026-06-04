@@ -55,6 +55,7 @@ func (s *UserService) VisitorHistory(userID uint) ([]models.Visitor, error) {
 	return s.visitorRepo.VisitorHistory(userID)
 }
 
-func (s *UserService) GetMyVisitors(userID uint) ([]models.Visitor, error) {
-	return s.visitorRepo.GetVisitorsByUserID(userID)
+
+func (s *UserService) GetUsersDropdown() ([]map[string]any, error) {
+	return s.userRepo.GetUsersDropdown()
 }

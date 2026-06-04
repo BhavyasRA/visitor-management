@@ -16,29 +16,113 @@ func Setup(app *fiber.App) {
 
 	api := app.Group("/api", middleware.AuthMiddleware)
 
-	api.Post("/users", middleware.RequirePermission("create_user"), handlers.CreateUser)
-	api.Get("/users", middleware.RequirePermission("view_users"), handlers.GetUsers)
-	api.Get("/users/:id", middleware.RequirePermission("view_users"), handlers.GetUser)
-	api.Put("/users/:id", middleware.RequirePermission("update_user"), handlers.UpdateUser)
-	api.Delete("/users/:id", middleware.RequirePermission("delete_user"), handlers.DeleteUser)
-	api.Patch("/users/:id/deactivate", middleware.RequirePermission("update_user"), handlers.DeactivateUser)
-	api.Get("/users/:id/visitor-history", middleware.RequirePermission("view_visitors"), handlers.VisitorHistory)
+	api.Get(
+		"/me",
+		middleware.RequirePermission("view_own_profile"),
+		handlers.GetMe,
+	)
 
-	api.Post("/visitors", middleware.RequirePermission("create_visitor"), handlers.CreateVisitor)
-	api.Get("/visitors", middleware.RequirePermission("view_visitors"), handlers.GetVisitors)
-	api.Put("/visitors/:id", middleware.RequirePermission("update_visitor"), handlers.UpdateVisitor)
-	api.Patch("/visitors/:id/restrict", middleware.RequirePermission("restrict_visitor"), handlers.RestrictVisitor)
+	api.Put(
+		"/me",
+		middleware.RequirePermission("update_own_profile"),
+		handlers.UpdateMe,
+	)
 
-	api.Post("/guard/make-entry", middleware.RequirePermission("make_entry"), handlers.MakeEntry)
-	api.Get("/guard/entries", middleware.RequirePermission("see_entry"), handlers.SeeEntries)
-	api.Patch("/guard/exit/:visitorId", middleware.RequirePermission("make_entry"), handlers.ExitVisitor)
-	api.Patch("/guard/restrict-visitor/:visitorId", middleware.RequirePermission("restrict_visitor"), handlers.GuardRestrictVisitor)
-	api.Patch("/guard/restrict-employee/:userId", middleware.RequirePermission("update_user"), handlers.GuardRestrictEmployee)
+	api.Post(
+		"/users",
+		middleware.RequirePermission("create_user"),
+		handlers.CreateUser,
+	)
 
 	api.Get(
-	"/users/me/visitors",
-	middleware.RequirePermission("view_visitors"),
-	handlers.GetMyVisitors,
-)
+		"/users",
+		middleware.RequirePermission("view_users"),
+		handlers.GetUsers,
+	)
+	api.Get(
+		"/users/dropdown",
+		middleware.RequirePermission("create_visitor"),
+		handlers.GetUsersDropdown,
+	)
 
+	api.Get(
+		"/users/:id",
+		middleware.RequirePermission("view_users"),
+		handlers.GetUser,
+	)
+
+	api.Put(
+		"/users/:id",
+		middleware.RequirePermission("update_user"),
+		handlers.UpdateUser,
+	)
+
+	api.Delete(
+		"/users/:id",
+		middleware.RequirePermission("delete_user"),
+		handlers.DeleteUser,
+	)
+
+	api.Patch(
+		"/users/:id/deactivate",
+		middleware.RequirePermission("update_user"),
+		handlers.DeactivateUser,
+	)
+
+	api.Get(
+		"/users/:id/visitor-history",
+		middleware.RequirePermission("view_visitors"),
+		handlers.VisitorHistory,
+	)
+
+	api.Post(
+		"/visitors",
+		middleware.RequirePermission("create_visitor"),
+		handlers.CreateVisitor,
+	)
+
+	api.Get(
+		"/visitors",
+		middleware.RequirePermission("view_visitors"),
+		handlers.GetVisitors,
+	)
+
+	api.Put(
+		"/visitors/:id",
+		middleware.RequirePermission("update_visitor"),
+		handlers.UpdateVisitor,
+	)
+
+	api.Patch(
+		"/visitors/:id/restrict",
+		middleware.RequirePermission("restrict_visitor"),
+		handlers.RestrictVisitor,
+	)
+
+	api.Get(
+		"/visitor-entries",
+		middleware.RequirePermission("view_visitors"),
+		handlers.GetVisitorEntriesGrouped,
+	)
+	api.Patch(
+		"/exit/:visitorId",
+		middleware.RequirePermission("make_entry"),
+		handlers.ExitVisitor,
+	)
+	api.Get(
+		"/visitors/mobile/:mobile",
+		middleware.RequirePermission("create_visitor"),
+		handlers.GetVisitorByMobile,
+	)
+	api.Get(
+		"/visitor-stats",
+		middleware.RequirePermission("view_visitors"),
+		handlers.GetVisitorStats,
+	)
+
+	api.Get(
+		"/dropdown/persons",
+		middleware.RequirePermission("create_visitor"),
+		handlers.GetPersonsDropdown,
+	)
 }

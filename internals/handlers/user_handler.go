@@ -125,20 +125,67 @@ func VisitorHistory(c fiber.Ctx) error {
 	return helpers.Success(c, "visitor history fetched successfully", history)
 }
 
-func GetMyVisitors(c fiber.Ctx) error {
+func GetMe(c fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
 		return helpers.Error(c, 401, "invalid user id")
 	}
 
-	visitors, err := userService.GetMyVisitors(userID)
+	user, err := userService.GetUser(userID)
+	if err != nil {
+		return helpers.Error(c, 404, "user not found")
+	}
+
+	return helpers.Success(
+		c,
+		"profile fetched successfully",
+		user,
+	)
+}
+
+func UpdateMe(c fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return helpers.Error(c, 401, "invalid user id")
+	}
+
+	var body struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+		Phone string `json:"phone"`
+	}
+
+	if err := c.Bind().Body(&body); err != nil {
+		return helpers.Error(c, 400, "invalid request body")
+	}
+
+	err := userService.UpdateUser(
+		userID,
+		body.Name,
+		body.Email,
+		body.Phone,
+	)
+
 	if err != nil {
 		return helpers.Error(c, 400, err.Error())
 	}
 
 	return helpers.Success(
 		c,
-		"visitors fetched successfully",
-		visitors,
+		"profile updated successfully",
+		nil,
+	)
+}
+
+func GetUsersDropdown(c fiber.Ctx) error {
+	users, err := userService.GetUsersDropdown()
+	if err != nil {
+		return helpers.Error(c, 400, err.Error())
+	}
+
+	return helpers.Success(
+		c,
+		"users dropdown fetched successfully",
+		users,
 	)
 }

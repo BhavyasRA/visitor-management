@@ -17,19 +17,16 @@ func seedRoles() {
 	roles := []string{
 		"admin",
 		"guard",
-		"employee",
+		"user",
 		"manager",
 	}
 
 	for _, roleName := range roles {
-
 		var role models.Role
 
 		database.DB.FirstOrCreate(
 			&role,
-			models.Role{
-				Name: roleName,
-			},
+			models.Role{Name: roleName},
 		)
 	}
 
@@ -37,12 +34,15 @@ func seedRoles() {
 }
 
 func seedPermissions() {
-
 	permissions := []string{
 		"create_user",
 		"view_users",
 		"update_user",
 		"delete_user",
+
+		"view_own_profile",
+		"update_own_profile",
+		"view_own_history",
 
 		"create_visitor",
 		"view_visitors",
@@ -57,14 +57,11 @@ func seedPermissions() {
 	}
 
 	for _, permissionName := range permissions {
-
 		var permission models.Permission
 
 		database.DB.FirstOrCreate(
 			&permission,
-			models.Permission{
-				Name: permissionName,
-			},
+			models.Permission{Name: permissionName},
 		)
 	}
 
@@ -72,12 +69,15 @@ func seedPermissions() {
 }
 
 func assignPermissionsToRoles() {
-
 	adminPermissions := []string{
 		"create_user",
 		"view_users",
 		"update_user",
 		"delete_user",
+
+		"view_own_profile",
+		"update_own_profile",
+		"view_own_history",
 
 		"create_visitor",
 		"view_visitors",
@@ -99,8 +99,10 @@ func assignPermissionsToRoles() {
 		"restrict_visitor",
 	}
 
-	employeePermissions := []string{
-		"view_visitors",
+	userPermissions := []string{
+		"view_own_profile",
+		"update_own_profile",
+		"view_own_history",
 	}
 
 	managerPermissions := []string{
@@ -111,7 +113,7 @@ func assignPermissionsToRoles() {
 
 	assignRolePermissions("admin", adminPermissions)
 	assignRolePermissions("guard", guardPermissions)
-	assignRolePermissions("employee", employeePermissions)
+	assignRolePermissions("user", userPermissions)
 	assignRolePermissions("manager", managerPermissions)
 
 	log.Println("Role permissions assigned successfully")
@@ -121,7 +123,6 @@ func assignRolePermissions(
 	roleName string,
 	permissionNames []string,
 ) {
-
 	var role models.Role
 
 	err := database.DB.
@@ -134,7 +135,6 @@ func assignRolePermissions(
 	}
 
 	for _, permissionName := range permissionNames {
-
 		var permission models.Permission
 
 		err := database.DB.

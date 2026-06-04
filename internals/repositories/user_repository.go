@@ -20,6 +20,7 @@ func (r *UserRepository) FindByID(id uint) (*models.User, error) {
 
 	err := database.DB.
 		Preload("Roles").
+		Preload("Roles.Permissions").
 		First(&user, id).Error
 
 	return &user, err
@@ -60,10 +61,44 @@ func (r *UserRepository) Deactivate(id uint) error {
 		Update("is_active", false).Error
 }
 
-func (r *UserRepository) AssignRole(userID uint, roleID uint) error {
+func (r *UserRepository) AssignRoleByName(userID uint, roleName string) error {
+	var role models.Role
+
+	err := database.DB.
+		Where("name = ?", roleName).
+		First(&role).Error
+
+	if err != nil {
+		return err
+	}
+
 	return database.DB.Exec(
 		"INSERT INTO user_roles (user_id, role_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
 		userID,
-		roleID,
+		role.ID,
 	).Error
+}
+
+func (r *UserRepository) GetUsersDropdown() ([]map[string]any, error) {
+	var users []models.User
+
+	err := database.DB.
+		Where("is_active = ?", true).
+		Order("name ASC").
+		Find(&users).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	var result []map[string]any
+
+	for _, user := range users {
+		result = append(result, map[string]any{
+			"id":   user.ID,
+			"name": user.Name,
+		})
+	}
+
+	return result, nil
 }

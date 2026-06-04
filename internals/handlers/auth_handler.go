@@ -19,39 +19,32 @@ func Signup(c fiber.Ctx) error {
 		return helpers.Error(c, 400, "invalid request body")
 	}
 
-	// if msg := utils.ValidateStruct(body); msg != "" {
-	// 	return helpers.Error(c, 400, msg)
-	// }
-
-	token, err := authService.Signup(
+	err := authService.Signup(
 		body.Name,
 		body.Email,
 		body.Phone,
 		body.Password,
 	)
-	data := fiber.Map{
-		"name":               body.Name,
-		"email":              body.Email,
-		"phone":              body.Phone,
-		"verification_token": token,
-	}
 
 	if err != nil {
 		return helpers.Error(c, 400, err.Error())
 	}
 
+	data := fiber.Map{
+		"name":  body.Name,
+		"email": body.Email,
+		"phone": body.Phone,
+	}
+
 	return helpers.Success(
 		c,
-		"signup successful, verify your account",
+		"signup successful",
 		data,
 	)
 }
 
 func Login(c fiber.Ctx) error {
-	var body struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
+	var body dto.LoginDTO
 
 	if err := c.Bind().Body(&body); err != nil {
 		return helpers.Error(c, 400, "invalid request body")
@@ -62,9 +55,9 @@ func Login(c fiber.Ctx) error {
 	if err != nil {
 		return helpers.Error(c, 401, err.Error())
 	}
+
 	data := fiber.Map{
 		"token": token,
-		"role":  "guard",
 		"email": body.Email,
 	}
 
@@ -73,8 +66,8 @@ func Login(c fiber.Ctx) error {
 		"login successful",
 		data,
 	)
-
 }
+
 func VerifyAccount(c fiber.Ctx) error {
 	var body struct {
 		Token string `json:"token"`

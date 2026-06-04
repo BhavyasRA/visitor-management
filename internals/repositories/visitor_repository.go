@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"entry-system/internals/database"
+	"entry-system/internals/dto"
 	"entry-system/internals/models"
 )
 
@@ -17,17 +18,13 @@ func (r *VisitorRepository) Create(visitor *models.Visitor) error {
 
 func (r *VisitorRepository) FindByID(id uint) (*models.Visitor, error) {
 	var visitor models.Visitor
-
 	err := database.DB.First(&visitor, id).Error
-
 	return &visitor, err
 }
 
 func (r *VisitorRepository) FindAll() ([]models.Visitor, error) {
 	var visitors []models.Visitor
-
 	err := database.DB.Find(&visitors).Error
-
 	return visitors, err
 }
 
@@ -44,22 +41,45 @@ func (r *VisitorRepository) Restrict(id uint) error {
 
 func (r *VisitorRepository) VisitorHistory(userID uint) ([]models.Visitor, error) {
 	var visitors []models.Visitor
-
 	err := database.DB.
-		Where("to_whom = ?", userID).
+		Where("person_to_meet = ?", userID).
 		Order("created_at DESC").
 		Find(&visitors).Error
-
 	return visitors, err
 }
 
-func (r *VisitorRepository) GetVisitorsByUserID(userID uint) ([]models.Visitor, error) {
+func (r *VisitorRepository) FindAllWithFilters(filter dto.VisitorFilter) ([]models.Visitor, error) {
 	var visitors []models.Visitor
+	query := database.DB.Model(&models.Visitor{})
+
+	if filter.Name != "" {
+		query = query.Where("name ILIKE ?", "%"+filter.Name+"%")
+	}
+	if filter.Mobile != "" {
+		query = query.Where("mobile = ?", filter.Mobile)
+	}
+	if filter.Email != "" {
+		query = query.Where("email ILIKE ?", "%"+filter.Email+"%")
+	}
+
+	if filter.From != "" {
+
+	}
+	if filter.To != "" {
+
+	}
+	if err := query.Find(&visitors).Error; err != nil {
+		return nil, err
+	}
+	return visitors, nil
+}
+
+func (r *VisitorRepository) FindByMobile(mobile string) (*models.Visitor, error) {
+	var visitor models.Visitor
 
 	err := database.DB.
-		Where("to_whom = ?", userID).
-		Order("created_at DESC").
-		Find(&visitors).Error
+		Where("mobile = ?", mobile).
+		First(&visitor).Error
 
-	return visitors, err
+	return &visitor, err
 }

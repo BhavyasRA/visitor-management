@@ -28,11 +28,16 @@ func (s *AuthService) Signup(
 	email string,
 	phone string,
 	password string,
-) (string, error) {
+) error {
+
+	existingUser, err := s.userRepo.FindByEmail(email)
+	if err == nil && existingUser.ID != 0 {
+		return errors.New("email already registered")
+	}
 
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	user := models.User{
@@ -43,27 +48,24 @@ func (s *AuthService) Signup(
 	}
 
 	if err := s.userRepo.Create(&user); err != nil {
-		return "", err
+		return err
 	}
-
-	token := uuid.New().String()
-	expires := time.Now().Add(30 * time.Minute)
 
 	auth := models.Authentication{
-		UserID:            user.ID,
-		Password:          hashedPassword,
-		VerificationToken: token,
-		TokenExpiresAt:    &expires,
+		UserID:   user.ID,
+		Password: hashedPassword,
 	}
 
-	err = s.authRepo.Create(&auth)
-	if err != nil {
-		return "", err
+	if err := s.authRepo.Create(&auth); err != nil {
+		return err
 	}
 
-	return token, nil
+	if err := s.userRepo.AssignRoleByName(user.ID, "user"); err != nil {
+		return err
+	}
+
+	return nil
 }
-
 func (s *AuthService) Login(email, password string) (string, error) {
 	user, err := s.userRepo.FindByEmail(email)
 	if err != nil {
@@ -77,10 +79,6 @@ func (s *AuthService) Login(email, password string) (string, error) {
 	auth, err := s.authRepo.FindByUserID(user.ID)
 	if err != nil {
 		return "", errors.New("auth record not found")
-	}
-
-	if auth.VerifiedAt == nil {
-		return "", errors.New("account not verified")
 	}
 
 	if err := utils.ComparePassword(auth.Password, password); err != nil {
