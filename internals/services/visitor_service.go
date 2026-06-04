@@ -77,7 +77,6 @@ func (s *VisitorService) CreateVisitor(
 		EnteredAt:    time.Now(),
 	}
 
- 
 	return s.entryLogRepo.Create(&entry)
 }
 
@@ -131,7 +130,8 @@ func (s *VisitorService) GetGroupedVisitorEntries(
 		}
 
 		item := dto.VisitorListItemDTO{
-			ID:             entry.ID,
+			ID:             entry.VisitorID,
+			EntryID:        entry.ID,
 			Name:           entry.Visitor.Name,
 			PurposeOfVisit: entry.Purpose,
 			Status:         statusText,
@@ -160,10 +160,9 @@ func (s *VisitorService) GetVisitorStats() (map[string]int64, error) {
 	return s.entryLogRepo.GetVisitorStats()
 }
 
-func (s *VisitorService) ExitVisitor(visitorID uint) error {
-	return s.entryLogRepo.ExitVisitor(visitorID)
+func (s *VisitorService) ExitVisitor(entryID uint) error {
+	return s.entryLogRepo.ExitVisitor(entryID)
 }
-
 func (s *VisitorService) GetPersonsDropdown() []map[string]any {
 	return []map[string]any{
 		{"id": 1, "name": "Deepak Swain"},

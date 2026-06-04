@@ -29,6 +29,7 @@ type VisitorFilter struct {
 
 type VisitorListItemDTO struct {
 	ID             uint   `json:"id"`
+	EntryID        uint   `json:"entry_id"`
 	Name           string `json:"name"`
 	PurposeOfVisit string `json:"purpose"`
 	Status         string `json:"status"`

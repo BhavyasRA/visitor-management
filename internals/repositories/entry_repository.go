@@ -54,7 +54,6 @@ func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
 	query := database.DB.
 		Model(&models.EntryLog{}).
 		Preload("Visitor").
-		Preload("User").
 		Order("entered_at DESC")
 
 	if status == "active" {
@@ -119,7 +118,6 @@ func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
 		query = query.Where("entered_at >= ? AND entered_at < ?", start, end)
 
 	case "", "all":
-		// no date filter
 
 	default:
 		return nil, errors.New("invalid filter")

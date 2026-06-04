@@ -199,36 +199,56 @@ func GetVisitorStats(c fiber.Ctx) error {
 	)
 }
 
+// func ExitVisitor(c fiber.Ctx) error {
+
+// 	visitorID, err := strconv.Atoi(
+// 		c.Params("visitorId"),
+// 	)
+
+// 	if err != nil {
+// 		return helpers.Error(
+// 			c,
+// 			400,
+// 			"invalid visitor id",
+// 		)
+// 	}
+
+// 	if err := visitorService.ExitVisitor(
+// 		uint(visitorID),
+// 	); err != nil {
+// 		return helpers.Error(
+// 			c,
+// 			400,
+// 			err.Error(),
+// 		)
+// 	}
+
+//		return helpers.Success(
+//			c,
+//			"visitor exited successfully",
+//			fiber.Map{
+//				"visitor_id": visitorID,
+//				"status":     "exited",
+//			},
+//		)
+//	}
 func ExitVisitor(c fiber.Ctx) error {
 
-	visitorID, err := strconv.Atoi(
-		c.Params("visitorId"),
-	)
-
+	entryID, err := strconv.Atoi(c.Params("entryId"))
 	if err != nil {
-		return helpers.Error(
-			c,
-			400,
-			"invalid visitor id",
-		)
+		return helpers.Error(c, 400, "invalid entry id")
 	}
 
-	if err := visitorService.ExitVisitor(
-		uint(visitorID),
-	); err != nil {
-		return helpers.Error(
-			c,
-			400,
-			err.Error(),
-		)
+	if err := visitorService.ExitVisitor(uint(entryID)); err != nil {
+		return helpers.Error(c, 400, err.Error())
 	}
 
 	return helpers.Success(
 		c,
 		"visitor exited successfully",
 		fiber.Map{
-			"visitor_id": visitorID,
-			"status":     "exited",
+			"entry_id": entryID,
+			"status":   "exited",
 		},
 	)
 }
