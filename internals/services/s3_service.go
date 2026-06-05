@@ -45,7 +45,7 @@ func (s *S3Service) UploadVisitorDocument(file *multipart.FileHeader) (string, e
 	ext := filepath.Ext(file.Filename)
 
 	fileKey := fmt.Sprintf(
-		"visitor_documents/document_%d%s",
+		"document_%d%s",
 		time.Now().UnixNano(),
 		ext,
 	)

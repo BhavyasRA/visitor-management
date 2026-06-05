@@ -41,9 +41,7 @@ func (r *VisitorRepository) FindByMobile(mobile string) (*models.Visitor, error)
 	return &visitor, err
 }
 
-func (r *VisitorRepository) FindAllWithFilters(
-	filter dto.VisitorFilter,
-) ([]models.Visitor, error) {
+func (r *VisitorRepository) FindAllWithFilters(filter dto.VisitorFilter) ([]models.Visitor, error) {
 	var visitors []models.Visitor
 
 	query := database.DB.

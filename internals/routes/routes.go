@@ -105,7 +105,7 @@ func Setup(app *fiber.App) {
 		handlers.GetVisitorEntriesGrouped,
 	)
 	api.Patch(
-		"/exit/:visitorId",
+		"/exit/:entryId",
 		middleware.RequirePermission("make_entry"),
 		handlers.ExitVisitor,
 	)
@@ -136,5 +136,10 @@ func Setup(app *fiber.App) {
 		"/visitor-documents/ai-response",
 		middleware.RequirePermission("create_visitor"),
 		handlers.UpdateDocumentAIResponse,
+	)
+	api.Get(
+		"/all-onSite",
+		middleware.RequirePermission("make_entry"),
+		handlers.GetActiveEntries,
 	)
 }

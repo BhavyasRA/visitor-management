@@ -45,19 +45,24 @@ func ConnectDB() {
 
 	DB = db
 
-	err = DB.AutoMigrate(
-		&models.User{},
-		&models.Authentication{},
-		&models.Role{},
-		&models.Permission{},
-		&models.Visitor{},
-		&models.VisitorDocument{},
-		&models.EntryLog{},
-	)
+	migrateDb := config.GetEnv("MIGRATE_DB", "true")
 
-	if err != nil {
-		log.Fatal("Migration failed")
+	if migrateDb == "true" {
+		err = DB.AutoMigrate(
+			&models.User{},
+			&models.Authentication{},
+			&models.Role{},
+			&models.Permission{},
+			&models.Visitor{},
+			&models.VisitorDocument{},
+			&models.EntryLog{},
+		)
+		if err != nil {
+			log.Fatal("Migration failed")
+		}
 	}
+
+	
 
 	log.Println("Database connected successfully")
 }

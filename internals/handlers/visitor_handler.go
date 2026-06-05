@@ -53,20 +53,31 @@ func CreateVisitor(c fiber.Ctx) error {
 		visitingTill = &parsed
 	}
 
-	documentFile, err := c.FormFile("document")
+	photoFile, err := c.FormFile("photo")
 	if err != nil {
-		return helpers.Error(c, 400, "document file is required")
+		return helpers.Error(c, 400, "photo file is required")
+	}
+
+	photoURL, err := services.NewS3Service().UploadVisitorDocument(photoFile)
+	if err != nil {
+		return helpers.Error(c, 400, "failed to upload photo: "+err.Error())
+	}
+
+	documentFile, err := c.FormFile("identity_document")
+	if err != nil {
+		return helpers.Error(c, 400, "identity document file is required")
 	}
 
 	documentURL, err := services.NewS3Service().UploadVisitorDocument(documentFile)
 	if err != nil {
-		return helpers.Error(c, 400, "failed to upload document: "+err.Error())
+		return helpers.Error(c, 400, "failed to upload identity document: "+err.Error())
 	}
 
 	entry, visitor, document, err := visitorService.CreateVisitor(
 		name,
 		mobile,
 		email,
+		photoURL,
 		documentURL,
 		purpose,
 		uint(personToMeet),
@@ -77,29 +88,27 @@ func CreateVisitor(c fiber.Ctx) error {
 		return helpers.Error(c, 400, err.Error())
 	}
 
-	data := fiber.Map{
-		"visitor_id":      visitor.ID,
-		"entry_id":        entry.ID,
-		"document_id":     document.ID,
-		"name":            visitor.Name,
-		"mobile":          visitor.Mobile,
-		"email":           visitor.Email,
-		"document_url":    document.DocumentURL,
-		"document_type":   document.DocumentType,
-		"document_number": document.DocumentNumber,
-		"purpose":         entry.Purpose,
-		"person_to_meet":  entry.PersonToMeet,
-		"status":          entry.Status,
-		"visiting_till":   entry.VisitingTill,
-	}
-
 	return helpers.Success(
 		c,
 		"visitor created successfully",
-		data,
+		fiber.Map{
+			"visitor_id":            visitor.ID,
+			"entry_id":              entry.ID,
+			"document_id":           document.ID,
+			"name":                  visitor.Name,
+			"mobile":                visitor.Mobile,
+			"email":                 visitor.Email,
+			"photo_url":             document.PhotoURL,
+			"identity_document_url": document.IdentityDocumentURL,
+			"document_type":         document.DocumentType,
+			"document_number":       document.DocumentNumber,
+			"purpose":               entry.Purpose,
+			"person_to_meet":        entry.PersonToMeet,
+			"status":                entry.Status,
+			"visiting_till":         entry.VisitingTill,
+		},
 	)
 }
-
 func GetVisitors(c fiber.Ctx) error {
 	var filter dto.VisitorFilter
 
@@ -239,7 +248,13 @@ func GetVisitorStats(c fiber.Ctx) error {
 }
 
 func ExitVisitor(c fiber.Ctx) error {
-	entryID, err := strconv.Atoi(c.Params("entryId"))
+	entryIDParam := c.Params("entryId")
+
+	if entryIDParam == "" {
+		return helpers.Error(c, 400, "entry id is required")
+	}
+
+	entryID, err := strconv.Atoi(entryIDParam)
 	if err != nil {
 		return helpers.Error(c, 400, "invalid entry id")
 	}
@@ -285,7 +300,7 @@ func GetVisitorDocumentForAI(c fiber.Ctx) error {
 		fiber.Map{
 			"visitor_document_id": document.ID,
 			"visitor_id":          document.VisitorID,
-			"document_url":        document.DocumentURL,
+			"document_url":        document.IdentityDocumentURL,
 		},
 	)
 }
@@ -325,4 +340,13 @@ func UpdateDocumentAIResponse(c fiber.Ctx) error {
 		"document updated successfully",
 		nil,
 	)
+}
+
+func GetActiveEntries(c fiber.Ctx) error {
+	data, err := visitorService.GetActiveEntries()
+	if err != nil {
+		return helpers.Error(c, 400, err.Error())
+	}
+
+	return helpers.Success(c, "active entries fetched successfully", data)
 }

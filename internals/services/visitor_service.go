@@ -35,7 +35,8 @@ func (s *VisitorService) CreateVisitor(
 	name string,
 	mobile string,
 	email string,
-	documentURL string,
+	photoURL string,
+	identityDocumentURL string,
 	purpose string,
 	personToMeet uint,
 	visitingTill *time.Time,
@@ -67,8 +68,9 @@ func (s *VisitorService) CreateVisitor(
 	}
 
 	document := models.VisitorDocument{
-		VisitorID:   visitor.ID,
-		DocumentURL: documentURL,
+		VisitorID:           visitor.ID,
+		PhotoURL:            photoURL,
+		IdentityDocumentURL: identityDocumentURL,
 	}
 
 	if err := s.visitorDocumentRepo.Create(&document); err != nil {
@@ -217,4 +219,8 @@ func (s *VisitorService) UpdateDocumentAIResponse(
 	return s.visitorDocumentRepo.Update(
 		document,
 	)
+}
+
+func (s *VisitorService) GetActiveEntries() ([]dto.VisitorListItemDTO, error) {
+	return s.entryLogRepo.GetActiveEntries()
 }

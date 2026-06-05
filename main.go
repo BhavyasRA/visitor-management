@@ -18,7 +18,11 @@ func main() {
 
 	database.ConnectDB()
 
-	seeds.RunSeeders()
+	seedDb := config.GetEnv("SEED_DB", "true")
+	
+	if seedDb == "true" {
+		seeds.RunSeeders()
+	}
 
 	_ = os.MkdirAll("./uploads/visitors", os.ModePerm)
 

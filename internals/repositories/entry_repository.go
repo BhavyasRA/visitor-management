@@ -1,9 +1,11 @@
 package repositories
 
 import (
+	"errors"
 	"time"
 
 	"entry-system/internals/database"
+	"entry-system/internals/dto"
 	"entry-system/internals/models"
 )
 
@@ -15,18 +17,6 @@ func NewEntryRepository() *EntryRepository {
 
 func (r *EntryRepository) Create(entry *models.EntryLog) error {
 	return database.DB.Create(entry).Error
-}
-
-func (r *EntryRepository) ExitVisitor(entryID uint) error {
-	now := time.Now()
-
-	return database.DB.
-		Model(&models.EntryLog{}).
-		Where("id = ? AND exited_at IS NULL", entryID).
-		Updates(map[string]any{
-			"exited_at": now,
-			"status":    "exited",
-		}).Error
 }
 
 func (r *EntryRepository) FindAll() ([]models.EntryLog, error) {
@@ -113,4 +103,54 @@ func (r *EntryRepository) GetVisitorStats() (map[string]int64, error) {
 		"entered_today":   todayActiveVisitors,
 		"exited_today":    todayExitedVisitors,
 	}, nil
+}
+
+func (r *EntryRepository) ExitVisitor(entryID uint) error {
+	now := time.Now()
+
+	result := database.DB.
+		Model(&models.EntryLog{}).
+		Where("id = ? AND exited_at IS NULL", entryID).
+		Updates(map[string]any{
+			"exited_at": now,
+			"status":    "exited",
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("entry not found or already exited")
+	}
+
+	return nil
+}
+
+func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorListItemDTO, error) {
+	var entries []models.EntryLog
+
+	err := database.DB.
+		Preload("Visitor").
+		Where("exited_at IS NULL").
+		Order("entered_at DESC").
+		Find(&entries).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	var result []dto.VisitorListItemDTO
+
+	for _, entry := range entries {
+		result = append(result, dto.VisitorListItemDTO{
+			ID:             entry.VisitorID,
+			EntryID:        entry.ID,
+			Name:           entry.Visitor.Name,
+			PurposeOfVisit: entry.Purpose,
+			Status:         entry.Status,
+		})
+	}
+
+	return result, nil
 }

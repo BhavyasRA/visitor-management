@@ -21,7 +21,7 @@ func NewS3Client() *minio.Client {
 
 	accessKey := GetEnv("S3_ACCESS_KEY", "bhavya")
 	secretKey := GetEnv("S3_SECRET_KEY", "Nanibhavya*979")
-	useSSL := GetEnv("S3_USE_SSL", "false") == "true"
+	useSSL := GetEnv("S3_USE_SSL", "true") == "true"
 
 	client, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
