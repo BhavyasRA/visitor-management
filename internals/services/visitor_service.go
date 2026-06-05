@@ -33,13 +33,14 @@ func (s *VisitorService) CreateVisitor(
 	name string,
 	mobile string,
 	email string,
-	imageURL string,
+	photo string,
+	identityDocument string,
 	purpose string,
-	PersonToMeet uint,
+	personToMeet uint,
 	visitingTill *time.Time,
 ) error {
 
-	if _, ok := AllowedPersonsToMeet[PersonToMeet]; !ok {
+	if _, ok := AllowedPersonsToMeet[personToMeet]; !ok {
 		return errors.New("invalid person to meet")
 	}
 
@@ -47,10 +48,11 @@ func (s *VisitorService) CreateVisitor(
 
 	if err != nil {
 		visitor = &models.Visitor{
-			Name:     name,
-			Mobile:   mobile,
-			Email:    email,
-			ImageURL: imageURL,
+			Name:             name,
+			Mobile:           mobile,
+			Email:            email,
+			Photo:            photo,
+			IdentityDocument: identityDocument,
 		}
 
 		if err := s.visitorRepo.Create(visitor); err != nil {
@@ -60,8 +62,12 @@ func (s *VisitorService) CreateVisitor(
 		visitor.Name = name
 		visitor.Email = email
 
-		if imageURL != "" {
-			visitor.ImageURL = imageURL
+		if photo != "" {
+			visitor.Photo = photo
+		}
+
+		if identityDocument != "" {
+			visitor.IdentityDocument = identityDocument
 		}
 
 		if err := s.visitorRepo.Update(visitor); err != nil {
@@ -71,8 +77,9 @@ func (s *VisitorService) CreateVisitor(
 
 	entry := models.EntryLog{
 		VisitorID:    visitor.ID,
-		PersonToMeet: PersonToMeet,
+		PersonToMeet: personToMeet,
 		Purpose:      purpose,
+		Status:       "active",
 		VisitingTill: visitingTill,
 		EnteredAt:    time.Now(),
 	}
@@ -124,7 +131,7 @@ func (s *VisitorService) GetGroupedVisitorEntries(
 	for _, entry := range entries {
 		date := entry.EnteredAt.Format("2006-01-02")
 
-		statusText := "inactive"
+		statusText := "exited"
 		if entry.ExitedAt == nil {
 			statusText = "active"
 		}
