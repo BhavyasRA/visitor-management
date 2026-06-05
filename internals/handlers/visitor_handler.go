@@ -15,27 +15,22 @@ import (
 var visitorService = services.NewVisitorService()
 
 func CreateVisitor(c fiber.Ctx) error {
-	var body struct {
-		ImageURL     string `json:"image_url"`
-		Name         string `json:"name"`
-		Mobile       string `json:"mobile"`
-		Email        string `json:"email"`
-		Purpose      string `json:"purpose"`
-		PersonToMeet uint   `json:"person_to_meet"`
-		VisitingTill string `json:"visiting_till"`
-	}
+	name := c.FormValue("name")
+	mobile := c.FormValue("mobile")
+	email := c.FormValue("email")
+	purpose := c.FormValue("purpose")
+	personToMeetStr := c.FormValue("person_to_meet")
+	visitingTillStr := c.FormValue("visiting_till")
 
-	if err := c.Bind().Body(&body); err != nil {
-		return helpers.Error(c, 400, "invalid request body")
+	personToMeet, err := strconv.ParseUint(personToMeetStr, 10, 64)
+	if err != nil {
+		return helpers.Error(c, 400, "invalid person_to_meet")
 	}
-
-	fmt.Printf("CREATE VISITOR PAYLOAD: %+v\n", body)
-	fmt.Println("RAW BODY:", string(c.Body()))
 
 	var visitingTill *time.Time
 
-	if body.VisitingTill != "" {
-		parsed, err := time.Parse(time.RFC3339, body.VisitingTill)
+	if visitingTillStr != "" {
+		parsed, err := time.Parse(time.RFC3339, visitingTillStr)
 		if err != nil {
 			return helpers.Error(c, 400, "invalid visiting_till format, use RFC3339")
 		}
@@ -43,13 +38,52 @@ func CreateVisitor(c fiber.Ctx) error {
 		visitingTill = &parsed
 	}
 
-	err := visitorService.CreateVisitor(
-		body.Name,
-		body.Mobile,
-		body.Email,
-		body.ImageURL,
-		body.Purpose,
-		body.PersonToMeet,
+	photoURL := ""
+
+	photoFile, err := c.FormFile("photo")
+	if err == nil && photoFile != nil {
+		photoName := fmt.Sprintf(
+			"photo_%d_%s",
+			time.Now().UnixNano(),
+			photoFile.Filename,
+		)
+
+		photoPath := "./uploads/visitors/" + photoName
+
+		if err := c.SaveFile(photoFile, photoPath); err != nil {
+			return helpers.Error(c, 400, "failed to save photo")
+		}
+
+		photoURL = "/uploads/visitors/" + photoName
+	}
+
+	identityDocumentURL := ""
+
+	identityFile, err := c.FormFile("identity_document")
+	if err == nil && identityFile != nil {
+		identityName := fmt.Sprintf(
+			"identity_%d_%s",
+			time.Now().UnixNano(),
+			identityFile.Filename,
+		)
+
+		identityPath := "./uploads/visitors/" + identityName
+
+		if err := c.SaveFile(identityFile, identityPath); err != nil {
+			return helpers.Error(c, 400, "failed to save identity document")
+		}
+
+		identityDocumentURL = "/uploads/visitors/" + identityName
+	}
+
+	err = visitorService.CreateVisitor(
+		name,
+		mobile,
+		email,
+		photoURL,
+		identityDocumentURL,
+		purpose,
+		uint(personToMeet),
 		visitingTill,
 	)
 
@@ -58,13 +92,14 @@ func CreateVisitor(c fiber.Ctx) error {
 	}
 
 	data := fiber.Map{
-		"image_url":      body.ImageURL,
-		"name":           body.Name,
-		"mobile":         body.Mobile,
-		"email":          body.Email,
-		"purpose":        body.Purpose,
-		"person_to_meet": body.PersonToMeet,
-		"visiting_till":  body.VisitingTill,
+		"photo":             photoURL,
+		"identity_document": identityDocumentURL,
+		"name":              name,
+		"mobile":            mobile,
+		"email":             email,
+		"purpose":           purpose,
+		"person_to_meet":    personToMeet,
+		"visiting_till":     visitingTillStr,
 	}
 
 	return helpers.Success(c, "visitor created successfully", data)
@@ -174,7 +209,7 @@ func GetVisitorByMobile(c fiber.Ctx) error {
 		"name":       visitor.Name,
 		"mobile":     visitor.Mobile,
 		"email":      visitor.Email,
-		"image_url":  visitor.ImageURL,
+		"photo":      visitor.Photo,
 		"restricted": visitor.IsRestricted,
 	}
 

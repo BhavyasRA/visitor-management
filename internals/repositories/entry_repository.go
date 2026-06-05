@@ -60,7 +60,7 @@ func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
 		query = query.Where("exited_at IS NULL")
 	}
 
-	if status == "inactive" {
+	if status == "exited" {
 		query = query.Where("exited_at IS NOT NULL")
 	}
 

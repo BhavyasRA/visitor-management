@@ -5,14 +5,15 @@ import "time"
 type Visitor struct {
 	ID uint `gorm:"primaryKey"`
 
-	ImageURL string
+	Photo            string `json:"photo"`
+	IdentityDocument string `json:"identity_document"`
 
-	Name   string
-	Mobile string `gorm:"unique"`
-	Email  string
+	Name   string `json:"name"`
+	Mobile string `gorm:"unique" json:"mobile"`
+	Email  string `json:"email"`
 
-	IsRestricted bool `gorm:"default:false"`
+	IsRestricted bool `gorm:"default:false" json:"is_restricted"`
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
