@@ -18,14 +18,16 @@ var AllowedPersonsToMeet = map[uint]string{
 }
 
 type VisitorService struct {
-	visitorRepo  *repositories.VisitorRepository
-	entryLogRepo *repositories.EntryRepository
+	visitorRepo         *repositories.VisitorRepository
+	entryLogRepo        *repositories.EntryRepository
+	visitorDocumentRepo *repositories.VisitorDocumentRepository
 }
 
 func NewVisitorService() *VisitorService {
 	return &VisitorService{
-		visitorRepo:  repositories.NewVisitorRepository(),
-		entryLogRepo: repositories.NewEntryRepository(),
+		visitorRepo:         repositories.NewVisitorRepository(),
+		entryLogRepo:        repositories.NewEntryRepository(),
+		visitorDocumentRepo: repositories.NewVisitorDocumentRepository(),
 	}
 }
 
@@ -33,46 +35,44 @@ func (s *VisitorService) CreateVisitor(
 	name string,
 	mobile string,
 	email string,
-	photo string,
-	identityDocument string,
+	documentURL string,
 	purpose string,
 	personToMeet uint,
 	visitingTill *time.Time,
-) error {
+) (*models.EntryLog, *models.Visitor, *models.VisitorDocument, error) {
 
 	if _, ok := AllowedPersonsToMeet[personToMeet]; !ok {
-		return errors.New("invalid person to meet")
+		return nil, nil, nil, errors.New("invalid person to meet")
 	}
 
 	visitor, err := s.visitorRepo.FindByMobile(mobile)
 
 	if err != nil {
 		visitor = &models.Visitor{
-			Name:             name,
-			Mobile:           mobile,
-			Email:            email,
-			Photo:            photo,
-			IdentityDocument: identityDocument,
+			Name:   name,
+			Mobile: mobile,
+			Email:  email,
 		}
 
 		if err := s.visitorRepo.Create(visitor); err != nil {
-			return err
+			return nil, nil, nil, err
 		}
 	} else {
 		visitor.Name = name
 		visitor.Email = email
 
-		if photo != "" {
-			visitor.Photo = photo
-		}
-
-		if identityDocument != "" {
-			visitor.IdentityDocument = identityDocument
-		}
-
 		if err := s.visitorRepo.Update(visitor); err != nil {
-			return err
+			return nil, nil, nil, err
 		}
+	}
+
+	document := models.VisitorDocument{
+		VisitorID:   visitor.ID,
+		DocumentURL: documentURL,
+	}
+
+	if err := s.visitorDocumentRepo.Create(&document); err != nil {
+		return nil, nil, nil, err
 	}
 
 	entry := models.EntryLog{
@@ -84,11 +84,29 @@ func (s *VisitorService) CreateVisitor(
 		EnteredAt:    time.Now(),
 	}
 
-	return s.entryLogRepo.Create(&entry)
+	if err := s.entryLogRepo.Create(&entry); err != nil {
+		return nil, nil, nil, err
+	}
+
+	return &entry, visitor, &document, nil
 }
 
 func (s *VisitorService) GetVisitors(filter dto.VisitorFilter) ([]models.Visitor, error) {
 	return s.visitorRepo.FindAllWithFilters(filter)
+}
+
+func (s *VisitorService) ExitVisitor(entryID uint) error {
+	return s.entryLogRepo.ExitVisitor(entryID)
+}
+
+func (s *VisitorService) GetPersonsDropdown() []map[string]any {
+	return []map[string]any{
+		{"id": 1, "name": "Deepak Swain"},
+		{"id": 2, "name": "Adithya"},
+		{"id": 3, "name": "Rahul Sharma"},
+		{"id": 4, "name": "Amit Kumar"},
+		{"id": 5, "name": "Ravi Kumar"},
+	}
 }
 
 func (s *VisitorService) UpdateVisitor(id uint, name, mobile, email string) error {
@@ -159,7 +177,10 @@ func (s *VisitorService) GetGroupedVisitorEntries(
 	return result, nil
 }
 
-func (s *VisitorService) GetVisitorByMobile(mobile string) (*models.Visitor, error) {
+func (s *VisitorService) GetVisitorByMobile(
+	mobile string,
+) (*models.Visitor, error) {
+
 	return s.visitorRepo.FindByMobile(mobile)
 }
 
@@ -167,15 +188,33 @@ func (s *VisitorService) GetVisitorStats() (map[string]int64, error) {
 	return s.entryLogRepo.GetVisitorStats()
 }
 
-func (s *VisitorService) ExitVisitor(entryID uint) error {
-	return s.entryLogRepo.ExitVisitor(entryID)
+func (s *VisitorService) GetVisitorDocumentForAI(
+	documentID uint,
+) (*models.VisitorDocument, error) {
+
+	return s.visitorDocumentRepo.FindByID(documentID)
 }
-func (s *VisitorService) GetPersonsDropdown() []map[string]any {
-	return []map[string]any{
-		{"id": 1, "name": "Deepak Swain"},
-		{"id": 2, "name": "Adithya"},
-		{"id": 3, "name": "Rahul Sharma"},
-		{"id": 4, "name": "Amit Kumar"},
-		{"id": 5, "name": "Ravi Kumar"},
+
+func (s *VisitorService) UpdateDocumentAIResponse(
+	documentID uint,
+	documentType string,
+	documentNumber string,
+) error {
+
+	document, err := s.visitorDocumentRepo.FindByID(
+		documentID,
+	)
+
+	if err != nil {
+		return errors.New(
+			"visitor document not found",
+		)
 	}
+
+	document.DocumentType = documentType
+	document.DocumentNumber = documentNumber
+
+	return s.visitorDocumentRepo.Update(
+		document,
+	)
 }

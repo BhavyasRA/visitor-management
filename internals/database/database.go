@@ -51,6 +51,7 @@ func ConnectDB() {
 		&models.Role{},
 		&models.Permission{},
 		&models.Visitor{},
+		&models.VisitorDocument{},
 		&models.EntryLog{},
 	)
 

@@ -125,4 +125,16 @@ func Setup(app *fiber.App) {
 		middleware.RequirePermission("create_visitor"),
 		handlers.GetPersonsDropdown,
 	)
+
+	api.Get(
+		"/visitor-documents/:documentId",
+		middleware.RequirePermission("create_visitor"),
+		handlers.GetVisitorDocumentForAI,
+	)
+
+	api.Post(
+		"/visitor-documents/ai-response",
+		middleware.RequirePermission("create_visitor"),
+		handlers.UpdateDocumentAIResponse,
+	)
 }

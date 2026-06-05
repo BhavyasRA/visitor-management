@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -22,6 +21,22 @@ func CreateVisitor(c fiber.Ctx) error {
 	personToMeetStr := c.FormValue("person_to_meet")
 	visitingTillStr := c.FormValue("visiting_till")
 
+	if name == "" {
+		return helpers.Error(c, 400, "name is required")
+	}
+
+	if mobile == "" {
+		return helpers.Error(c, 400, "mobile is required")
+	}
+
+	if purpose == "" {
+		return helpers.Error(c, 400, "purpose is required")
+	}
+
+	if personToMeetStr == "" {
+		return helpers.Error(c, 400, "person_to_meet is required")
+	}
+
 	personToMeet, err := strconv.ParseUint(personToMeetStr, 10, 64)
 	if err != nil {
 		return helpers.Error(c, 400, "invalid person_to_meet")
@@ -38,50 +53,21 @@ func CreateVisitor(c fiber.Ctx) error {
 		visitingTill = &parsed
 	}
 
-	photoURL := ""
-
-	photoFile, err := c.FormFile("photo")
-	if err == nil && photoFile != nil {
-		photoName := fmt.Sprintf(
-			"photo_%d_%s",
-			time.Now().UnixNano(),
-			photoFile.Filename,
-		)
-
-		photoPath := "./uploads/visitors/" + photoName
-
-		if err := c.SaveFile(photoFile, photoPath); err != nil {
-			return helpers.Error(c, 400, "failed to save photo")
-		}
-
-		photoURL = "/uploads/visitors/" + photoName
+	documentFile, err := c.FormFile("document")
+	if err != nil {
+		return helpers.Error(c, 400, "document file is required")
 	}
 
-	identityDocumentURL := ""
-
-	identityFile, err := c.FormFile("identity_document")
-	if err == nil && identityFile != nil {
-		identityName := fmt.Sprintf(
-			"identity_%d_%s",
-			time.Now().UnixNano(),
-			identityFile.Filename,
-		)
-
-		identityPath := "./uploads/visitors/" + identityName
-
-		if err := c.SaveFile(identityFile, identityPath); err != nil {
-			return helpers.Error(c, 400, "failed to save identity document")
-		}
-
-		identityDocumentURL = "/uploads/visitors/" + identityName
+	documentURL, err := services.NewS3Service().UploadVisitorDocument(documentFile)
+	if err != nil {
+		return helpers.Error(c, 400, "failed to upload document: "+err.Error())
 	}
 
-	err = visitorService.CreateVisitor(
+	entry, visitor, document, err := visitorService.CreateVisitor(
 		name,
 		mobile,
 		email,
-		photoURL,
-		identityDocumentURL,
+		documentURL,
 		purpose,
 		uint(personToMeet),
 		visitingTill,
@@ -92,21 +78,31 @@ func CreateVisitor(c fiber.Ctx) error {
 	}
 
 	data := fiber.Map{
-		"photo":             photoURL,
-		"identity_document": identityDocumentURL,
-		"name":              name,
-		"mobile":            mobile,
-		"email":             email,
-		"purpose":           purpose,
-		"person_to_meet":    personToMeet,
-		"visiting_till":     visitingTillStr,
+		"visitor_id":      visitor.ID,
+		"entry_id":        entry.ID,
+		"document_id":     document.ID,
+		"name":            visitor.Name,
+		"mobile":          visitor.Mobile,
+		"email":           visitor.Email,
+		"document_url":    document.DocumentURL,
+		"document_type":   document.DocumentType,
+		"document_number": document.DocumentNumber,
+		"purpose":         entry.Purpose,
+		"person_to_meet":  entry.PersonToMeet,
+		"status":          entry.Status,
+		"visiting_till":   entry.VisitingTill,
 	}
 
-	return helpers.Success(c, "visitor created successfully", data)
+	return helpers.Success(
+		c,
+		"visitor created successfully",
+		data,
+	)
 }
 
 func GetVisitors(c fiber.Ctx) error {
 	var filter dto.VisitorFilter
+
 	filter.Name = c.Query("name")
 	filter.Mobile = c.Query("mobile")
 	filter.Email = c.Query("email")
@@ -117,24 +113,27 @@ func GetVisitors(c fiber.Ctx) error {
 	if err != nil {
 		return helpers.Error(c, 500, err.Error())
 	}
+
 	return helpers.Success(c, "visitors fetched successfully", visitors)
 }
 
 func UpdateVisitor(c fiber.Ctx) error {
-	id, _ := strconv.Atoi(c.Params("id"))
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return helpers.Error(c, 400, "invalid visitor id")
+	}
 
 	var body struct {
-		Name    string `json:"name"`
-		Mobile  string `json:"mobile"`
-		Email   string `json:"email"`
-		Purpose string `json:"purpose"`
+		Name   string `json:"name"`
+		Mobile string `json:"mobile"`
+		Email  string `json:"email"`
 	}
 
 	if err := c.Bind().Body(&body); err != nil {
 		return helpers.Error(c, 400, "invalid request body")
 	}
 
-	err := visitorService.UpdateVisitor(
+	err = visitorService.UpdateVisitor(
 		uint(id),
 		body.Name,
 		body.Mobile,
@@ -145,27 +144,36 @@ func UpdateVisitor(c fiber.Ctx) error {
 		return helpers.Error(c, 400, err.Error())
 	}
 
-	data := fiber.Map{
-		"name":    body.Name,
-		"mobile":  body.Mobile,
-		"email":   body.Email,
-		"purpose": body.Purpose,
-	}
-	return helpers.Success(c, "visitor updated successfully", data)
+	return helpers.Success(
+		c,
+		"visitor updated successfully",
+		fiber.Map{
+			"id":     id,
+			"name":   body.Name,
+			"mobile": body.Mobile,
+			"email":  body.Email,
+		},
+	)
 }
 
 func RestrictVisitor(c fiber.Ctx) error {
-	id, _ := strconv.Atoi(c.Params("id"))
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return helpers.Error(c, 400, "invalid visitor id")
+	}
 
 	if err := visitorService.RestrictVisitor(uint(id)); err != nil {
 		return helpers.Error(c, 400, err.Error())
 	}
-	data := fiber.Map{
-		"id":     id,
-		"status": "restricted",
-	}
 
-	return helpers.Success(c, "visitor restricted successfully", data)
+	return helpers.Success(
+		c,
+		"visitor restricted successfully",
+		fiber.Map{
+			"id":     id,
+			"status": "restricted",
+		},
+	)
 }
 
 func GetVisitorEntriesGrouped(c fiber.Ctx) error {
@@ -204,25 +212,21 @@ func GetVisitorByMobile(c fiber.Ctx) error {
 		return helpers.Error(c, 404, "visitor not found")
 	}
 
-	data := fiber.Map{
-		"id":         visitor.ID,
-		"name":       visitor.Name,
-		"mobile":     visitor.Mobile,
-		"email":      visitor.Email,
-		"photo":      visitor.Photo,
-		"restricted": visitor.IsRestricted,
-	}
-
 	return helpers.Success(
 		c,
 		"visitor fetched successfully",
-		data,
+		fiber.Map{
+			"id":            visitor.ID,
+			"name":          visitor.Name,
+			"mobile":        visitor.Mobile,
+			"email":         visitor.Email,
+			"is_restricted": visitor.IsRestricted,
+		},
 	)
 }
+
 func GetVisitorStats(c fiber.Ctx) error {
-
 	data, err := visitorService.GetVisitorStats()
-
 	if err != nil {
 		return helpers.Error(c, 400, err.Error())
 	}
@@ -234,41 +238,7 @@ func GetVisitorStats(c fiber.Ctx) error {
 	)
 }
 
-// func ExitVisitor(c fiber.Ctx) error {
-
-// 	visitorID, err := strconv.Atoi(
-// 		c.Params("visitorId"),
-// 	)
-
-// 	if err != nil {
-// 		return helpers.Error(
-// 			c,
-// 			400,
-// 			"invalid visitor id",
-// 		)
-// 	}
-
-// 	if err := visitorService.ExitVisitor(
-// 		uint(visitorID),
-// 	); err != nil {
-// 		return helpers.Error(
-// 			c,
-// 			400,
-// 			err.Error(),
-// 		)
-// 	}
-
-//		return helpers.Success(
-//			c,
-//			"visitor exited successfully",
-//			fiber.Map{
-//				"visitor_id": visitorID,
-//				"status":     "exited",
-//			},
-//		)
-//	}
 func ExitVisitor(c fiber.Ctx) error {
-
 	entryID, err := strconv.Atoi(c.Params("entryId"))
 	if err != nil {
 		return helpers.Error(c, 400, "invalid entry id")
@@ -289,12 +259,70 @@ func ExitVisitor(c fiber.Ctx) error {
 }
 
 func GetPersonsDropdown(c fiber.Ctx) error {
-
 	data := visitorService.GetPersonsDropdown()
 
 	return helpers.Success(
 		c,
 		"persons dropdown fetched successfully",
 		data,
+	)
+}
+
+func GetVisitorDocumentForAI(c fiber.Ctx) error {
+	documentID, err := strconv.Atoi(c.Params("documentId"))
+	if err != nil {
+		return helpers.Error(c, 400, "invalid document id")
+	}
+
+	document, err := visitorService.GetVisitorDocumentForAI(uint(documentID))
+	if err != nil {
+		return helpers.Error(c, 404, "visitor document not found")
+	}
+
+	return helpers.Success(
+		c,
+		"visitor document fetched successfully",
+		fiber.Map{
+			"visitor_document_id": document.ID,
+			"visitor_id":          document.VisitorID,
+			"document_url":        document.DocumentURL,
+		},
+	)
+}
+
+func UpdateDocumentAIResponse(c fiber.Ctx) error {
+
+	var body struct {
+		VisitorDocumentID uint   `json:"visitor_document_id"`
+		DocumentType      string `json:"document_type"`
+		DocumentNumber    string `json:"document_number"`
+	}
+
+	if err := c.Bind().Body(&body); err != nil {
+		return helpers.Error(
+			c,
+			400,
+			"invalid request body",
+		)
+	}
+
+	err := visitorService.UpdateDocumentAIResponse(
+		body.VisitorDocumentID,
+		body.DocumentType,
+		body.DocumentNumber,
+	)
+
+	if err != nil {
+		return helpers.Error(
+			c,
+			400,
+			err.Error(),
+		)
+	}
+
+	return helpers.Success(
+		c,
+		"document updated successfully",
+		nil,
 	)
 }

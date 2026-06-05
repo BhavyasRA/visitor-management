@@ -1,7 +1,6 @@
 package repositories
 
 import (
-	"errors"
 	"time"
 
 	"entry-system/internals/database"
@@ -18,6 +17,18 @@ func (r *EntryRepository) Create(entry *models.EntryLog) error {
 	return database.DB.Create(entry).Error
 }
 
+func (r *EntryRepository) ExitVisitor(entryID uint) error {
+	now := time.Now()
+
+	return database.DB.
+		Model(&models.EntryLog{}).
+		Where("id = ? AND exited_at IS NULL", entryID).
+		Updates(map[string]any{
+			"exited_at": now,
+			"status":    "exited",
+		}).Error
+}
+
 func (r *EntryRepository) FindAll() ([]models.EntryLog, error) {
 	var entries []models.EntryLog
 
@@ -30,101 +41,34 @@ func (r *EntryRepository) FindAll() ([]models.EntryLog, error) {
 	return entries, err
 }
 
-func (r *EntryRepository) ExitVisitor(visitorID uint) error {
-	now := time.Now()
-
-	return database.DB.
-		Model(&models.EntryLog{}).
-		Where("visitor_id = ? AND exited_at IS NULL", visitorID).
-		Updates(map[string]interface{}{
-			"exited_at": now,
-			"status":    "exited",
-		}).Error
-}
-
 func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
 	status string,
 	filter string,
 	from string,
 	to string,
 ) ([]models.EntryLog, error) {
-
 	var entries []models.EntryLog
 
 	query := database.DB.
-		Model(&models.EntryLog{}).
 		Preload("Visitor").
+		Model(&models.EntryLog{}).
 		Order("entered_at DESC")
 
+	today := time.Now()
+	start := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
+	end := start.AddDate(0, 0, 1)
+
+	query = query.Where("entered_at >= ? AND entered_at < ?", start, end)
+
 	if status == "active" {
-		query = query.Where("exited_at IS NULL")
+		query = query.Where("status = ?", "active")
 	}
 
 	if status == "exited" {
-		query = query.Where("exited_at IS NOT NULL")
-	}
-
-	now := time.Now()
-
-	switch filter {
-
-	case "today":
-		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		end := start.AddDate(0, 0, 1)
-
-		query = query.Where("entered_at >= ? AND entered_at < ?", start, end)
-
-	case "yesterday":
-		todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		yesterdayStart := todayStart.AddDate(0, 0, -1)
-
-		query = query.Where("entered_at >= ? AND entered_at < ?", yesterdayStart, todayStart)
-
-	case "last_2_days":
-		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).
-			AddDate(0, 0, -2)
-
-		query = query.Where("entered_at >= ?", start)
-
-	case "week":
-		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).
-			AddDate(0, 0, -7)
-
-		query = query.Where("entered_at >= ?", start)
-
-	case "month":
-		start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-		end := start.AddDate(0, 1, 0)
-
-		query = query.Where("entered_at >= ? AND entered_at < ?", start, end)
-
-	case "custom":
-		if from == "" || to == "" {
-			return nil, errors.New("from and to are required")
-		}
-
-		start, err := time.Parse("2006-01-02", from)
-		if err != nil {
-			return nil, errors.New("invalid from date")
-		}
-
-		end, err := time.Parse("2006-01-02", to)
-		if err != nil {
-			return nil, errors.New("invalid to date")
-		}
-
-		end = end.AddDate(0, 0, 1)
-
-		query = query.Where("entered_at >= ? AND entered_at < ?", start, end)
-
-	case "", "all":
-
-	default:
-		return nil, errors.New("invalid filter")
+		query = query.Where("status = ?", "exited")
 	}
 
 	err := query.Find(&entries).Error
-
 	return entries, err
 }
 
