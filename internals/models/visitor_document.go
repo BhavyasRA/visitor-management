@@ -6,7 +6,7 @@ type VisitorDocument struct {
 	ID uint `gorm:"primaryKey" json:"id"`
 
 	VisitorID           uint    `json:"visitor_id"`
-	Visitor             Visitor `gorm:"foreignKey:VisitorID" json:"visitor"`
+	Visitor             Visitor `json:"-" gorm:"foreignKey:VisitorID" `
 	PhotoURL            string  `json:"photo_url"`
 	IdentityDocumentURL string  `json:"identity_document"`
 	DocumentType        string  `json:"document_type"`

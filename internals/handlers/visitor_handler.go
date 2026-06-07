@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -14,6 +15,43 @@ import (
 var visitorService = services.NewVisitorService()
 
 func CreateVisitor(c fiber.Ctx) error {
+	form, err := c.MultipartForm()
+	if err != nil {
+		fmt.Println("MultipartForm error:", err)
+		return err
+	}
+
+	fmt.Println("VALUES:", form.Value)
+	fmt.Println("FILES:", form.File)
+
+	fmt.Println("========== CREATE VISITOR DEBUG ==========")
+	fmt.Println("CONTENT TYPE:", c.Get("Content-Type"))
+
+	fmt.Println("name:", c.FormValue("name"))
+	fmt.Println("mobile:", c.FormValue("mobile"))
+	fmt.Println("email:", c.FormValue("email"))
+	fmt.Println("purpose:", c.FormValue("purpose"))
+	fmt.Println("person_to_meet:", c.FormValue("person_to_meet"))
+	fmt.Println("visiting_till:", c.FormValue("visiting_till"))
+
+	photoFile, photoErr := c.FormFile("photo")
+	if photoErr != nil {
+		fmt.Println("photo error:", photoErr)
+	} else {
+		fmt.Println("photo filename:", photoFile.Filename)
+		fmt.Println("photo size:", photoFile.Size)
+	}
+
+	identityFile, identityErr := c.FormFile("identity_document")
+	if identityErr != nil {
+		fmt.Println("identity_document error:", identityErr)
+	} else {
+		fmt.Println("identity_document filename:", identityFile.Filename)
+		fmt.Println("identity_document size:", identityFile.Size)
+	}
+
+	fmt.Println("==========================================")
+
 	name := c.FormValue("name")
 	mobile := c.FormValue("mobile")
 	email := c.FormValue("email")
@@ -53,8 +91,7 @@ func CreateVisitor(c fiber.Ctx) error {
 		visitingTill = &parsed
 	}
 
-	photoFile, err := c.FormFile("photo")
-	if err != nil {
+	if photoErr != nil {
 		return helpers.Error(c, 400, "photo file is required")
 	}
 
@@ -63,12 +100,11 @@ func CreateVisitor(c fiber.Ctx) error {
 		return helpers.Error(c, 400, "failed to upload photo: "+err.Error())
 	}
 
-	documentFile, err := c.FormFile("identity_document")
-	if err != nil {
+	if identityErr != nil {
 		return helpers.Error(c, 400, "identity document file is required")
 	}
 
-	documentURL, err := services.NewS3Service().UploadVisitorDocument(documentFile)
+	documentURL, err := services.NewS3Service().UploadVisitorDocument(identityFile)
 	if err != nil {
 		return helpers.Error(c, 400, "failed to upload identity document: "+err.Error())
 	}
@@ -109,6 +145,7 @@ func CreateVisitor(c fiber.Ctx) error {
 		},
 	)
 }
+
 func GetVisitors(c fiber.Ctx) error {
 	var filter dto.VisitorFilter
 
@@ -343,10 +380,16 @@ func UpdateDocumentAIResponse(c fiber.Ctx) error {
 }
 
 func GetActiveEntries(c fiber.Ctx) error {
+
 	data, err := visitorService.GetActiveEntries()
+
 	if err != nil {
 		return helpers.Error(c, 400, err.Error())
 	}
 
-	return helpers.Success(c, "active entries fetched successfully", data)
+	return helpers.Success(
+		c,
+		"active entries fetched successfully",
+		data,
+	)
 }

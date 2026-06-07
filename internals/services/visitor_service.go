@@ -221,6 +221,6 @@ func (s *VisitorService) UpdateDocumentAIResponse(
 	)
 }
 
-func (s *VisitorService) GetActiveEntries() ([]dto.VisitorListItemDTO, error) {
+func (s *VisitorService) GetActiveEntries() ([]dto.VisitorGroupedDTO, error) {
 	return s.entryLogRepo.GetActiveEntries()
 }

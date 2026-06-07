@@ -127,7 +127,8 @@ func (r *EntryRepository) ExitVisitor(entryID uint) error {
 	return nil
 }
 
-func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorListItemDTO, error) {
+func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorGroupedDTO, error) {
+
 	var entries []models.EntryLog
 
 	err := database.DB.
@@ -140,16 +141,37 @@ func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorListItemDTO, error) {
 		return nil, err
 	}
 
-	var result []dto.VisitorListItemDTO
+	groupMap := make(map[string][]dto.VisitorListItemDTO)
 
 	for _, entry := range entries {
-		result = append(result, dto.VisitorListItemDTO{
+
+		date := entry.EnteredAt.Format("2006-01-02")
+
+		item := dto.VisitorListItemDTO{
 			ID:             entry.VisitorID,
 			EntryID:        entry.ID,
 			Name:           entry.Visitor.Name,
 			PurposeOfVisit: entry.Purpose,
 			Status:         entry.Status,
-		})
+		}
+
+		groupMap[date] = append(
+			groupMap[date],
+			item,
+		)
+	}
+
+	var result []dto.VisitorGroupedDTO
+
+	for date, visitors := range groupMap {
+
+		result = append(
+			result,
+			dto.VisitorGroupedDTO{
+				Date:     date,
+				Visitors: visitors,
+			},
+		)
 	}
 
 	return result, nil
