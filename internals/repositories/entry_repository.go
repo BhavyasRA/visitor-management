@@ -17,19 +17,50 @@ func NewEntryRepository() *EntryRepository {
 }
 
 func (r *EntryRepository) Create(entry *models.EntryLog) error {
-	return database.DB.Create(entry).Error
+	query := `
+		INSERT INTO entry_logs (
+			visitor_id,
+			person_to_meet,
+			purpose,
+			status,
+			visiting_till,
+			entered_at,
+			exited_at,
+			created_at,
+			updated_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+	`
+
+	return database.DB.Exec(
+		query,
+		entry.VisitorID,
+		entry.PersonToMeet,
+		entry.Purpose,
+		entry.Status,
+		entry.VisitingTill,
+		entry.EnteredAt,
+		entry.ExitedAt,
+	).Error
 }
 
 func (r *EntryRepository) FindAll() ([]models.EntryLog, error) {
 	var entries []models.EntryLog
 
-	err := database.DB.
-		Preload("Visitor").
-		Preload("User").
-		Order("entered_at DESC").
-		Find(&entries).Error
+	query := `
+		SELECT *
+		FROM entry_logs
+		ORDER BY entered_at DESC
+	`
 
-	return entries, err
+	err := database.DB.Raw(query).Scan(&entries).Error
+	if err != nil {
+		return nil, err
+	}
+
+	r.loadVisitor(&entries)
+
+	return entries, nil
 }
 
 func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
@@ -40,12 +71,6 @@ func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
 ) ([]models.EntryLog, error) {
 
 	var entries []models.EntryLog
-
-	query := database.DB.
-		Preload("Visitor").
-		Preload("Visitor.Documents").
-		Model(&models.EntryLog{}).
-		Order("entered_at DESC")
 
 	today := time.Now()
 
@@ -59,51 +84,58 @@ func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
 
 	end := start.AddDate(0, 0, 1)
 
-	query = query.Where(
-		"entered_at >= ? AND entered_at < ?",
-		start,
-		end,
-	)
+	query := `
+		SELECT *
+		FROM entry_logs
+		WHERE entered_at >= ?
+		AND entered_at < ?
+		AND exited_at IS NULL
+		ORDER BY entered_at DESC
+	`
 
-	// ONLY ACTIVE RECORDS
-	query = query.Where("exited_at IS NULL")
+	err := database.DB.Raw(query, start, end).Scan(&entries).Error
+	if err != nil {
+		return nil, err
+	}
 
-	err := query.Find(&entries).Error
+	r.loadVisitorAndDocuments(&entries)
 
-	return entries, err
+	return entries, nil
 }
 
 func (r *EntryRepository) GetVisitorStats() (map[string]int64, error) {
-
 	var totalActiveVisitors int64
 	var todayActiveVisitors int64
 	var todayExitedVisitors int64
 
 	today := time.Now().Format("2006-01-02")
 
-	err := database.DB.
-		Model(&models.EntryLog{}).
-		Where("exited_at IS NULL").
-		Count(&totalActiveVisitors).Error
+	err := database.DB.Raw(`
+		SELECT COUNT(*)
+		FROM entry_logs
+		WHERE exited_at IS NULL
+	`).Scan(&totalActiveVisitors).Error
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = database.DB.
-		Model(&models.EntryLog{}).
-		Where("DATE(entered_at) = ?", today).
-		Where("exited_at IS NULL").
-		Count(&todayActiveVisitors).Error
+	err = database.DB.Raw(`
+		SELECT COUNT(*)
+		FROM entry_logs
+		WHERE DATE(entered_at) = ?
+		AND exited_at IS NULL
+	`, today).Scan(&todayActiveVisitors).Error
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = database.DB.
-		Model(&models.EntryLog{}).
-		Where("DATE(exited_at) = ?", today).
-		Count(&todayExitedVisitors).Error
+	err = database.DB.Raw(`
+		SELECT COUNT(*)
+		FROM entry_logs
+		WHERE DATE(exited_at) = ?
+	`, today).Scan(&todayExitedVisitors).Error
 
 	if err != nil {
 		return nil, err
@@ -119,13 +151,15 @@ func (r *EntryRepository) GetVisitorStats() (map[string]int64, error) {
 func (r *EntryRepository) ExitVisitor(entryID uint) error {
 	now := time.Now()
 
-	result := database.DB.
-		Model(&models.EntryLog{}).
-		Where("id = ? AND exited_at IS NULL", entryID).
-		Updates(map[string]any{
-			"exited_at": now,
-			"status":    "exited",
-		})
+	result := database.DB.Exec(`
+		UPDATE entry_logs
+		SET
+			exited_at = ?,
+			status = ?,
+			updated_at = NOW()
+		WHERE id = ?
+		AND exited_at IS NULL
+	`, now, "exited", entryID)
 
 	if result.Error != nil {
 		return result.Error
@@ -139,29 +173,27 @@ func (r *EntryRepository) ExitVisitor(entryID uint) error {
 }
 
 func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorGroupedDTO, error) {
-
 	var entries []models.EntryLog
 
-	err := database.DB.
-		Preload("Visitor").
-		Preload("Visitor.Documents").
-		Where("exited_at IS NULL").
-		Order("entered_at DESC").
-		Find(&entries).Error
+	err := database.DB.Raw(`
+		SELECT *
+		FROM entry_logs
+		WHERE exited_at IS NULL
+		ORDER BY entered_at DESC
+	`).Scan(&entries).Error
 
 	if err != nil {
 		return nil, err
 	}
+
+	r.loadVisitorAndDocuments(&entries)
 
 	ist, _ := time.LoadLocation("Asia/Kolkata")
 
 	groupMap := make(map[string][]dto.VisitorListItemDTO)
 
 	for _, entry := range entries {
-
-		date := entry.EnteredAt.
-			In(ist).
-			Format("2006-01-02")
+		date := entry.EnteredAt.In(ist).Format("2006-01-02")
 
 		statusText := entry.Status
 		if statusText == "" {
@@ -185,10 +217,7 @@ func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorGroupedDTO, error) {
 			PhotoURL: photoURL,
 		}
 
-		groupMap[date] = append(
-			groupMap[date],
-			item,
-		)
+		groupMap[date] = append(groupMap[date], item)
 	}
 
 	var dates []string
@@ -202,13 +231,10 @@ func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorGroupedDTO, error) {
 	var result []dto.VisitorGroupedDTO
 
 	for _, date := range dates {
-		result = append(
-			result,
-			dto.VisitorGroupedDTO{
-				Date:     date,
-				Visitors: groupMap[date],
-			},
-		)
+		result = append(result, dto.VisitorGroupedDTO{
+			Date:     date,
+			Visitors: groupMap[date],
+		})
 	}
 
 	return result, nil
@@ -220,18 +246,51 @@ func (r *EntryRepository) FindActiveEntryByVisitorID(
 
 	var entry models.EntryLog
 
-	err := database.DB.
-		Where(
-			"visitor_id = ? AND exited_at IS NULL AND status = ?",
-			visitorID,
-			"active",
-		).
-		First(&entry).
-		Error
+	err := database.DB.Raw(`
+		SELECT *
+		FROM entry_logs
+		WHERE visitor_id = ?
+		AND exited_at IS NULL
+		AND status = ?
+		LIMIT 1
+	`, visitorID, "active").Scan(&entry).Error
 
 	if err != nil {
 		return nil, err
 	}
 
+	if entry.ID == 0 {
+		return nil, errors.New("active entry not found")
+	}
+
 	return &entry, nil
+}
+
+func (r *EntryRepository) loadVisitor(entries *[]models.EntryLog) {
+	for i := range *entries {
+		database.DB.Raw(`
+			SELECT *
+			FROM visitors
+			WHERE id = ?
+			LIMIT 1
+		`, (*entries)[i].VisitorID).Scan(&(*entries)[i].Visitor)
+	}
+}
+
+func (r *EntryRepository) loadVisitorAndDocuments(entries *[]models.EntryLog) {
+	for i := range *entries {
+		database.DB.Raw(`
+			SELECT *
+			FROM visitors
+			WHERE id = ?
+			LIMIT 1
+		`, (*entries)[i].VisitorID).Scan(&(*entries)[i].Visitor)
+
+		database.DB.Raw(`
+			SELECT *
+			FROM visitor_documents
+			WHERE visitor_id = ?
+			ORDER BY id ASC
+		`, (*entries)[i].VisitorID).Scan(&(*entries)[i].Visitor.Documents)
+	}
 }

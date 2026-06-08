@@ -140,3 +140,22 @@ func CheckoutGuardSession(c fiber.Ctx) error {
 		nil,
 	)
 }
+
+func GetGuardSessionInfo(c fiber.Ctx) error {
+
+	userID, err := strconv.Atoi(c.Params("userID"))
+	if err != nil {
+		return helpers.Error(c, 400, "invalid user id")
+	}
+
+	data, err := guardSessionService.GetGuardSessionInfoByUserID(uint(userID))
+	if err != nil {
+		return helpers.Error(c, 404, "guard session not found")
+	}
+
+	return helpers.Success(
+		c,
+		"guard session info fetched successfully",
+		data,
+	)
+}
