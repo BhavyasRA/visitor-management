@@ -121,7 +121,9 @@ func CreateVisitor(c fiber.Ctx) error {
 	)
 
 	if err != nil {
-		return helpers.Error(c, 400, err.Error())
+		return c.Status(200).JSON(fiber.Map{
+			"message": err.Error(),
+		})
 	}
 
 	return helpers.Success(
