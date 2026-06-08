@@ -98,3 +98,14 @@ func (s *GuardSessionService) GetGuardSessionsByGuardID(
 
 	return s.guardSessionRepo.FindByGuardID(guardID)
 }
+
+func (s *GuardSessionService) CheckoutGuardSession(
+	sessionID string,
+	logoutPhotoURL string,
+) error {
+
+	return s.guardSessionRepo.CheckoutBySessionID(
+		sessionID,
+		logoutPhotoURL,
+	)
+}

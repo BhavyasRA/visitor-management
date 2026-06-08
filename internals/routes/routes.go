@@ -166,4 +166,7 @@ func Setup(app *fiber.App) {
 		middleware.RequirePermission("view_visitors"),
 		handlers.GetGuardSessionsByGuardID,
 	)
+	api.Post("/guard-checkout/:id",
+		middleware.RequirePermission("make_entry"),
+		handlers.CheckoutGuardSession)
 }

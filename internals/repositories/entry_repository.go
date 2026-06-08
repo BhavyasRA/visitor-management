@@ -38,6 +38,7 @@ func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
 	from string,
 	to string,
 ) ([]models.EntryLog, error) {
+
 	var entries []models.EntryLog
 
 	query := database.DB.
@@ -45,21 +46,30 @@ func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
 		Preload("Visitor.Documents").
 		Model(&models.EntryLog{}).
 		Order("entered_at DESC")
+
 	today := time.Now()
-	start := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
+
+	start := time.Date(
+		today.Year(),
+		today.Month(),
+		today.Day(),
+		0, 0, 0, 0,
+		today.Location(),
+	)
+
 	end := start.AddDate(0, 0, 1)
 
-	query = query.Where("entered_at >= ? AND entered_at < ?", start, end)
+	query = query.Where(
+		"entered_at >= ? AND entered_at < ?",
+		start,
+		end,
+	)
 
-	if status == "active" {
-		query = query.Where("status = ?", "active")
-	}
-
-	if status == "exited" {
-		query = query.Where("status = ?", "exited")
-	}
+	// ONLY ACTIVE RECORDS
+	query = query.Where("exited_at IS NULL")
 
 	err := query.Find(&entries).Error
+
 	return entries, err
 }
 
@@ -202,4 +212,26 @@ func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorGroupedDTO, error) {
 	}
 
 	return result, nil
+}
+
+func (r *EntryRepository) FindActiveEntryByVisitorID(
+	visitorID uint,
+) (*models.EntryLog, error) {
+
+	var entry models.EntryLog
+
+	err := database.DB.
+		Where(
+			"visitor_id = ? AND exited_at IS NULL AND status = ?",
+			visitorID,
+			"active",
+		).
+		First(&entry).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &entry, nil
 }

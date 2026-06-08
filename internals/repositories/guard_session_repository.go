@@ -39,26 +39,25 @@ func (r *GuardSessionRepository) Logout(
 	logoutPhotoURL string,
 ) error {
 
+	var session models.GuardSession
+
+	err := database.DB.
+		Where("guard_id = ? AND logout_at IS NULL", guardID).
+		Order("login_at DESC").
+		First(&session).
+		Error
+
+	if err != nil {
+		return err
+	}
+
 	now := time.Now()
 
-	result := database.DB.
-		Model(&models.GuardSession{}).
-		Where("guard_id = ? AND status = ?", guardID, "active").
-		Updates(map[string]any{
-			"logout_photo_url": logoutPhotoURL,
-			"logout_at":        now,
-			"status":           "completed",
-		})
+	session.LogoutPhotoURL = logoutPhotoURL
+	session.LogoutAt = &now
+	session.Status = "logged_out"
 
-	if result.Error != nil {
-		return result.Error
-	}
-
-	if result.RowsAffected == 0 {
-		return errors.New("no active guard session found")
-	}
-
-	return nil
+	return database.DB.Save(&session).Error
 }
 
 func (r *GuardSessionRepository) FindAll() ([]models.GuardSession, error) {
@@ -93,4 +92,33 @@ func (r *GuardSessionRepository) Update(
 	return database.DB.
 		Save(session).
 		Error
+}
+
+func (r *GuardSessionRepository) CheckoutBySessionID(
+	sessionID string,
+	logoutPhotoURL string,
+) error {
+
+	var session models.GuardSession
+
+	err := database.DB.
+		Where("id = ?", sessionID).
+		First(&session).
+		Error
+
+	if err != nil {
+		return errors.New("guard session not found")
+	}
+
+	if session.LogoutAt != nil {
+		return errors.New("guard session already checked out")
+	}
+
+	now := time.Now()
+
+	session.LogoutAt = &now
+	session.LogoutPhotoURL = logoutPhotoURL
+	session.Status = "checked_out"
+
+	return database.DB.Save(&session).Error
 }

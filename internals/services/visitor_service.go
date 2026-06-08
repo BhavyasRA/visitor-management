@@ -60,6 +60,11 @@ func (s *VisitorService) CreateVisitor(
 			return nil, nil, nil, err
 		}
 	} else {
+		activeEntry, err := s.entryLogRepo.FindActiveEntryByVisitorID(visitor.ID)
+		if err == nil && activeEntry != nil {
+			return nil, nil, nil, errors.New("active entry")
+		}
+
 		visitor.Name = name
 		visitor.Email = email
 
@@ -150,15 +155,6 @@ func (s *VisitorService) GetGroupedVisitorEntries(
 	for _, entry := range entries {
 		date := entry.EnteredAt.In(ist).Format("2006-01-02")
 
-		statusText := entry.Status
-		if statusText == "" {
-			statusText = "active"
-
-			if entry.ExitedAt != nil {
-				statusText = "exited"
-			}
-		}
-
 		photoURL := ""
 
 		if len(entry.Visitor.Documents) > 0 {
@@ -170,7 +166,7 @@ func (s *VisitorService) GetGroupedVisitorEntries(
 			EntryID:        entry.ID,
 			Name:           entry.Visitor.Name,
 			PurposeOfVisit: entry.Purpose,
-			Status:         statusText,
+			Status:         "active",
 			EnteredAt: entry.EnteredAt.
 				In(ist).
 				Format("2006-01-02T15:04:05Z07:00"),

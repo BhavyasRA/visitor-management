@@ -115,3 +115,28 @@ func GetGuardSessionsByGuardID(c fiber.Ctx) error {
 		data,
 	)
 }
+
+func CheckoutGuardSession(c fiber.Ctx) error {
+	id := c.Params("id")
+
+	logoutPhotoURL := c.FormValue("logout_photo_url")
+
+	if logoutPhotoURL == "" {
+		logoutPhotoURL = c.FormValue("logoutPhotoURL")
+	}
+
+	err := guardSessionService.CheckoutGuardSession(
+		id,
+		logoutPhotoURL,
+	)
+
+	if err != nil {
+		return helpers.Error(c, 400, err.Error())
+	}
+
+	return helpers.Success(
+		c,
+		"guard session checked out successfully",
+		nil,
+	)
+}
