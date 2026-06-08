@@ -142,4 +142,28 @@ func Setup(app *fiber.App) {
 		middleware.RequirePermission("make_entry"),
 		handlers.GetActiveEntries,
 	)
+
+	api.Post(
+		"/guard-session-start",
+		middleware.RequirePermission("make_entry"),
+		handlers.StartGuardSession,
+	)
+
+	api.Post(
+		"/guard-session-end",
+		middleware.RequirePermission("make_entry"),
+		handlers.EndGuardSession,
+	)
+
+	api.Get(
+		"/guards",
+		middleware.RequirePermission("view_visitors"),
+		handlers.GetAllGuardSessions,
+	)
+
+	api.Get(
+		"/guard/:guardId",
+		middleware.RequirePermission("view_visitors"),
+		handlers.GetGuardSessionsByGuardID,
+	)
 }

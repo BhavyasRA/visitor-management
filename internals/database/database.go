@@ -56,13 +56,12 @@ func ConnectDB() {
 			&models.Visitor{},
 			&models.VisitorDocument{},
 			&models.EntryLog{},
+			&models.GuardSession{},
 		)
 		if err != nil {
 			log.Fatal("Migration failed")
 		}
 	}
-
-	
 
 	log.Println("Database connected successfully")
 }

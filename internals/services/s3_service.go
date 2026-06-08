@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"entry-system/internals/config"
@@ -22,30 +23,45 @@ func NewS3Service() *S3Service {
 	}
 }
 
-func (s *S3Service) UploadVisitorDocument(file *multipart.FileHeader) (string, error) {
+func (s *S3Service) UploadFile(file *multipart.FileHeader,folder string,) (string, error) {
+
 	src, err := file.Open()
 	if err != nil {
 		return "", err
 	}
 	defer src.Close()
 
-	bucket := config.GetEnv("S3_BUCKET", "visitor-documents")
+	bucket := config.GetEnv(
+		"S3_BUCKET",
+		"visitor-documents",
+	)
 
-	exists, err := s.client.BucketExists(context.Background(), bucket)
+	exists, err := s.client.BucketExists(
+		context.Background(),
+		bucket,
+	)
 	if err != nil {
 		return "", err
 	}
 
 	if !exists {
-		if err := s.client.MakeBucket(context.Background(), bucket, minio.MakeBucketOptions{}); err != nil {
+		err := s.client.MakeBucket(
+			context.Background(),
+			bucket,
+			minio.MakeBucketOptions{},
+		)
+		if err != nil {
 			return "", err
 		}
 	}
 
+	folder = strings.Trim(folder, "/")
+
 	ext := filepath.Ext(file.Filename)
 
 	fileKey := fmt.Sprintf(
-		"document_%d%s",
+		"%s/document_%d%s",
+		folder,
 		time.Now().UnixNano(),
 		ext,
 	)
@@ -60,14 +76,21 @@ func (s *S3Service) UploadVisitorDocument(file *multipart.FileHeader) (string, e
 			ContentType: file.Header.Get("Content-Type"),
 		},
 	)
-
 	if err != nil {
 		return "", err
 	}
 
-	publicBaseURL := config.GetEnv("S3_PUBLIC_URL", "http://localhost:9000")
+	publicBaseURL := strings.TrimRight(
+		config.GetEnv("S3_PUBLIC_URL", "http://localhost:9000"),
+		"/",
+	)
 
-	documentURL := fmt.Sprintf("%s/%s/%s", publicBaseURL, bucket, fileKey)
+	documentURL := fmt.Sprintf(
+		"%s/%s/%s",
+		publicBaseURL,
+		bucket,
+		fileKey,
+	)
 
 	return documentURL, nil
 }

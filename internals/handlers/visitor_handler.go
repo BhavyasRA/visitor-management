@@ -15,14 +15,14 @@ import (
 var visitorService = services.NewVisitorService()
 
 func CreateVisitor(c fiber.Ctx) error {
-	form, err := c.MultipartForm()
-	if err != nil {
-		fmt.Println("MultipartForm error:", err)
-		return err
-	}
+	// form, err := c.MultipartForm()
+	// if err != nil {
+	// 	fmt.Println("MultipartForm error:", err)
+	// 	return err
+	// }
 
-	fmt.Println("VALUES:", form.Value)
-	fmt.Println("FILES:", form.File)
+	// fmt.Println("VALUES:", form.Value)
+	// fmt.Println("FILES:", form.File)
 
 	fmt.Println("========== CREATE VISITOR DEBUG ==========")
 	fmt.Println("CONTENT TYPE:", c.Get("Content-Type"))
@@ -95,7 +95,7 @@ func CreateVisitor(c fiber.Ctx) error {
 		return helpers.Error(c, 400, "photo file is required")
 	}
 
-	photoURL, err := services.NewS3Service().UploadVisitorDocument(photoFile)
+	photoURL, err := services.NewS3Service().UploadFile(photoFile, "visitors")
 	if err != nil {
 		return helpers.Error(c, 400, "failed to upload photo: "+err.Error())
 	}
@@ -104,7 +104,7 @@ func CreateVisitor(c fiber.Ctx) error {
 		return helpers.Error(c, 400, "identity document file is required")
 	}
 
-	documentURL, err := services.NewS3Service().UploadVisitorDocument(identityFile)
+	documentURL, err := services.NewS3Service().UploadFile(identityFile, "visitors")
 	if err != nil {
 		return helpers.Error(c, 400, "failed to upload identity document: "+err.Error())
 	}

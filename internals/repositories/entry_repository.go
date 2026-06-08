@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"errors"
+	"sort"
 	"time"
 
 	"entry-system/internals/database"
@@ -41,9 +42,9 @@ func (r *EntryRepository) GetVisitorEntriesByStatusAndDate(
 
 	query := database.DB.
 		Preload("Visitor").
+		Preload("Visitor.Documents").
 		Model(&models.EntryLog{}).
 		Order("entered_at DESC")
-
 	today := time.Now()
 	start := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 	end := start.AddDate(0, 0, 1)
@@ -133,6 +134,7 @@ func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorGroupedDTO, error) {
 
 	err := database.DB.
 		Preload("Visitor").
+		Preload("Visitor.Documents").
 		Where("exited_at IS NULL").
 		Order("entered_at DESC").
 		Find(&entries).Error
@@ -141,18 +143,36 @@ func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorGroupedDTO, error) {
 		return nil, err
 	}
 
+	ist, _ := time.LoadLocation("Asia/Kolkata")
+
 	groupMap := make(map[string][]dto.VisitorListItemDTO)
 
 	for _, entry := range entries {
 
-		date := entry.EnteredAt.Format("2006-01-02")
+		date := entry.EnteredAt.
+			In(ist).
+			Format("2006-01-02")
+
+		statusText := entry.Status
+		if statusText == "" {
+			statusText = "active"
+		}
+
+		photoURL := ""
+		if len(entry.Visitor.Documents) > 0 {
+			photoURL = entry.Visitor.Documents[len(entry.Visitor.Documents)-1].PhotoURL
+		}
 
 		item := dto.VisitorListItemDTO{
 			ID:             entry.VisitorID,
 			EntryID:        entry.ID,
 			Name:           entry.Visitor.Name,
 			PurposeOfVisit: entry.Purpose,
-			Status:         entry.Status,
+			Status:         statusText,
+			EnteredAt: entry.EnteredAt.
+				In(ist).
+				Format("2006-01-02T15:04:05Z07:00"),
+			PhotoURL: photoURL,
 		}
 
 		groupMap[date] = append(
@@ -161,15 +181,22 @@ func (r *EntryRepository) GetActiveEntries() ([]dto.VisitorGroupedDTO, error) {
 		)
 	}
 
+	var dates []string
+
+	for date := range groupMap {
+		dates = append(dates, date)
+	}
+
+	sort.Sort(sort.Reverse(sort.StringSlice(dates)))
+
 	var result []dto.VisitorGroupedDTO
 
-	for date, visitors := range groupMap {
-
+	for _, date := range dates {
 		result = append(
 			result,
 			dto.VisitorGroupedDTO{
 				Date:     date,
-				Visitors: visitors,
+				Visitors: groupMap[date],
 			},
 		)
 	}
