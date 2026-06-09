@@ -27,7 +27,7 @@ func StartGuardSession(c fiber.Ctx) error {
 		return helpers.Error(c, 400, "failed to upload login photo: "+err.Error())
 	}
 
-	session, err := guardSessionService.StartGuardSession(
+	session, guard, err := guardSessionService.StartGuardSession(
 		guardID,
 		photoURL,
 	)
@@ -42,6 +42,7 @@ func StartGuardSession(c fiber.Ctx) error {
 		fiber.Map{
 			"session_id":      session.ID,
 			"guard_id":        session.GuardID,
+			"guard_name":      guard.Name,
 			"login_photo_url": session.LoginPhotoURL,
 			"login_at":        session.LoginAt,
 			"status":          session.Status,

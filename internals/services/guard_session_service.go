@@ -24,11 +24,11 @@ func NewGuardSessionService() *GuardSessionService {
 func (s *GuardSessionService) StartGuardSession(
 	guardID uint,
 	loginPhotoURL string,
-) (*models.GuardSession, error) {
+) (*models.GuardSession, *models.User, error) {
 
-	_, err := s.userRepo.FindByID(guardID)
+	guard, err := s.userRepo.FindByID(guardID)
 	if err != nil {
-		return nil, errors.New("guard not found")
+		return nil, nil, errors.New("guard not found")
 	}
 
 	session := models.GuardSession{
@@ -39,10 +39,10 @@ func (s *GuardSessionService) StartGuardSession(
 	}
 
 	if err := s.guardSessionRepo.Create(&session); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &session, nil
+	return &session, guard, nil
 }
 
 // func (s *GuardSessionService) StartGuardSession(

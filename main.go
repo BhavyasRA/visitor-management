@@ -30,6 +30,7 @@ func main() {
 		BodyLimit:         50 * 1024 * 1024,
 		StreamRequestBody: false,
 	})
+	config.SetupCors(app)
 
 	app.Use("/uploads", static.New("./uploads"))
 
