@@ -105,7 +105,7 @@ func Setup(app *fiber.App) {
 		handlers.GetVisitorEntriesGrouped,
 	)
 	api.Patch(
-		"/exit/:visitorId",
+		"/exit/:entryId",
 		middleware.RequirePermission("make_entry"),
 		handlers.ExitVisitor,
 	)
@@ -124,5 +124,54 @@ func Setup(app *fiber.App) {
 		"/dropdown/persons",
 		middleware.RequirePermission("create_visitor"),
 		handlers.GetPersonsDropdown,
+	)
+
+	api.Get(
+		"/visitor-documents/:documentId",
+		middleware.RequirePermission("create_visitor"),
+		handlers.GetVisitorDocumentForAI,
+	)
+
+	api.Post(
+		"/visitor-documents/ai-response",
+		middleware.RequirePermission("create_visitor"),
+		handlers.UpdateDocumentAIResponse,
+	)
+	api.Get(
+		"/all-onSite",
+		middleware.RequirePermission("make_entry"),
+		handlers.GetActiveEntries,
+	)
+
+	api.Post(
+		"/guard-session-start",
+		middleware.RequirePermission("make_entry"),
+		handlers.StartGuardSession,
+	)
+
+	api.Post(
+		"/guard-session-end",
+		middleware.RequirePermission("make_entry"),
+		handlers.EndGuardSession,
+	)
+
+	api.Get(
+		"/guards",
+		middleware.RequirePermission("view_visitors"),
+		handlers.GetAllGuardSessions,
+	)
+
+	api.Get(
+		"/guard/:guardId",
+		middleware.RequirePermission("view_visitors"),
+		handlers.GetGuardSessionsByGuardID,
+	)
+	api.Post("/guard-checkout/:id",
+		middleware.RequirePermission("make_entry"),
+		handlers.CheckoutGuardSession,
+	)
+	api.Get("/guard-info/:userID",
+		middleware.RequirePermission("view_visitors"),
+		handlers.GetGuardSessionInfo,
 	)
 }

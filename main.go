@@ -18,11 +18,19 @@ func main() {
 
 	database.ConnectDB()
 
-	seeds.RunSeeders()
+	seedDb := config.GetEnv("SEED_DB", "true")
+
+	if seedDb == "true" {
+		seeds.RunSeeders()
+	}
 
 	_ = os.MkdirAll("./uploads/visitors", os.ModePerm)
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		BodyLimit:         50 * 1024 * 1024,
+		StreamRequestBody: false,
+	})
+	config.SetupCors(app)
 
 	app.Use("/uploads", static.New("./uploads"))
 

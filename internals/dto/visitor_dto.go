@@ -33,6 +33,8 @@ type VisitorListItemDTO struct {
 	Name           string `json:"name"`
 	PurposeOfVisit string `json:"purpose"`
 	Status         string `json:"status"`
+	EnteredAt      string `json:"entered_at"`
+	PhotoURL       string `json:"photo_url"`
 }
 
 type VisitorGroupedDTO struct {
